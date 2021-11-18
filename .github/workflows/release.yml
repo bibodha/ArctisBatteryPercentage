@@ -24,7 +24,7 @@ jobs:
       run: dotnet build --no-restore
     - name: publish
       run: 
-        dotnet publish -c Release -o ../arctisBatteryPercentage/publish -p:PublishSingleFile=true -r win-x64 --self-contained true /p:UseAppHost=true
+        dotnet publish ArctisBatteryPercentage -c Release -o ../arctisBatteryPercentage/publish -p:PublishSingleFile=true -r win-x64 --self-contained true /p:UseAppHost=true
     - name: Release
       uses: softprops/action-gh-release@v1
       with:
