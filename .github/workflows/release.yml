@@ -9,28 +9,26 @@ jobs:
     name: Create Release
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Install dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: publish
-      run: 
-        dotnet publish ArctisBatteryPercentage/ArctisBatteryPercentage.csproj -c Release -o publish -p:PublishSingleFile=true -r win-x64 --self-contained true /p:UseAppHost=true
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2.2.2
-      with:
-        name: build-artifact
-        path: arctisBatteryPercentage/publish/**
-        if-no-files-found: error
-    - name: Release
-      uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: ./ArctisBatteryPercentage/publish/ArctisBatteryPercentage.exe
-
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: publish
+        run: dotnet publish ArctisBatteryPercentage/ArctisBatteryPercentage.csproj -c Release -o publish -p:PublishSingleFile=true -r win-x64 --self-contained true /p:UseAppHost=true
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v2.2.2
+        with:
+          name: build-artifact
+          path: ArctisBatteryPercentage/publish/**
+          if-no-files-found: error
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ArctisBatteryPercentage/publish/ArctisBatteryPercentage.exe
