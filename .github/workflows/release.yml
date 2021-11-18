@@ -1,0 +1,43 @@
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Create Release
+env:
+  DOTNET_VERSION: 6.0.x
+jobs:
+  build:
+    name: Create Release
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Install dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: |
+        cd ArctisBatteryPercentage
+        dotnet build --configuration Release --no-restore
+        dotnet publish -c Release -o ../arctisBatteryPercentage/publish -p:PublishSingleFile=true -r win-x64 --self-contained true /p:UseAppHost=true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this Release
+            - First Change
+            - Second Change
+          draft: false
+          prerelease: false
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./arctisBatteryPercentage/publish/ArctisBatteryPercentage.exe
