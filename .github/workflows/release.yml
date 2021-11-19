@@ -25,10 +25,10 @@ jobs:
         uses: actions/upload-artifact@v2.2.2
         with:
           name: build-artifact
-          path: ArctisBatteryPercentage/ArctisBatteryPercentage/publish/**
+          path: ArctisBatteryPercentage\publish\**
           if-no-files-found: error
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ArctisBatteryPercentage/ArctisBatteryPercentage/publish/ArctisBatteryPercentage.exe
+          files: ArctisBatteryPercentage\publish\ArctisBatteryPercentage.exe
