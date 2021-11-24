@@ -1,129 +1,138 @@
-﻿using ArctisBattery;
-using System.Timers;
+﻿using Arctis;
+using System;
+using System.Drawing;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
-namespace ArctisBatteryPercentage
+namespace ArctisBatteryPercentage;
+
+class MyApplicationContext : ApplicationContext
 {
-    class MyApplicationContext : ApplicationContext
+    private NotifyIcon TrayIcon;
+    private System.Threading.Timer _timer;
+    private bool _balloonShown = false;
+    private ArctisLibrary _arctis;
+    private int _oldBatteryLevel = 0;
+
+    public MyApplicationContext()
     {
-        private NotifyIcon TrayIcon;
-        private DateTime _startTime;
-        private System.Timers.Timer _timer;
-        private bool _balloonShown = false;
+        Application.ApplicationExit += new EventHandler(OnApplicationExit);
+        InitializeComponent();
+        TrayIcon.Visible = true;
+    }
 
-        public MyApplicationContext()
+    private void InitializeComponent()
+    {
+        TrayIcon = new NotifyIcon
         {
-            Application.ApplicationExit += new EventHandler(OnApplicationExit);
-            InitializeComponent();
-            TrayIcon.Visible = true;
-        }
+            BalloonTipIcon = ToolTipIcon.Info,
+            BalloonTipTitle = "Battery Level Low",
+            BalloonTipText = "Battery Level is at 20%. Recharge Soon.",
+        };
+        CreateTextIcon(-1);
 
-        private void InitializeComponent()
+
+        var TrayIconConextMenu = new ContextMenuStrip();
+        var CloseMenuItem = new ToolStripMenuItem();
+        TrayIconConextMenu.SuspendLayout();
+
+        TrayIconConextMenu.Items.AddRange(new ToolStripMenuItem[] { CloseMenuItem });
+        TrayIconConextMenu.Name = "TrayIconContextMenu";
+        TrayIconConextMenu.Size = new Size(153, 70);
+
+        CloseMenuItem.Name = "CloseMenuItem";
+        CloseMenuItem.Size = new Size(152, 22);
+        CloseMenuItem.Text = "Close";
+        CloseMenuItem.Click += new EventHandler(CloseMenuItem_Click);
+
+        TrayIconConextMenu.ResumeLayout();
+
+
+        TrayIcon.ContextMenuStrip = TrayIconConextMenu;
+
+        _arctis = new ArctisLibrary();
+
+        _timer = new System.Threading.Timer(Timer_Elapsed, null, 0, 10000);
+    }
+
+    private void Timer_Elapsed(object? state)
+    {
+
+        var batteryLevel = _arctis.CheckBattery();
+        if (batteryLevel != _oldBatteryLevel)
         {
-            TrayIcon = new NotifyIcon
-            {
-                BalloonTipIcon = ToolTipIcon.Info,
-                BalloonTipTitle = "Battery Level Low",
-                BalloonTipText = "Battery Level is at 20%. Recharge Soon.",
-                Icon = CreateTextIcon(-1)
-            };
-
-
-            var TrayIconConextMenu = new ContextMenuStrip();
-            var CloseMenuItem = new ToolStripMenuItem();
-            //TrayIconConextMenu.SuspendLayout();
-
-            TrayIconConextMenu.Items.AddRange(new ToolStripMenuItem[] { CloseMenuItem });
-            TrayIconConextMenu.Name = "TrayIconContextMenu";
-            TrayIconConextMenu.Size = new Size(153, 70);
-
-            CloseMenuItem.Name = "CloseMenuItem";
-            CloseMenuItem.Size = new Size(152, 22);
-            CloseMenuItem.Text = "Close";
-            CloseMenuItem.Click += new EventHandler(CloseMenuItem_Click);
-
-            TrayIcon.ContextMenuStrip = TrayIconConextMenu;
-
-            var arctis = new Arctis();
-            var batteryLevel = arctis.CheckBattery();
-            UpdateIcon(batteryLevel);
-
-            _startTime = DateTime.Now;
-            _timer = new System.Timers.Timer(1000 * 10);
-            _timer.Elapsed += Timer_Elapsed;
-            _timer.Enabled = true;
-        }
-
-        private void TrayIcon_MouseDown(object? sender, MouseEventArgs e)
-        {
-            throw new NotImplementedException();
-        }
-
-        private void Timer_Elapsed(object source, ElapsedEventArgs e)
-        {
-
-            var arctis = new Arctis();
-            var batteryLevel = arctis.CheckBattery();
+            _oldBatteryLevel = batteryLevel;
             UpdateIcon(batteryLevel);
         }
+    }
 
-        private void UpdateIcon(int batteryLevel)
+    private void UpdateIcon(int batteryLevel)
+    {
+        CreateTextIcon(batteryLevel);
+
+        if (batteryLevel == 0)
         {
-            TrayIcon.Icon = CreateTextIcon(batteryLevel);
-
-            if (batteryLevel == 0)
-            {
-                TrayIcon.Text = "Device not powered on.";
-            }
-            else
-            {
-                TrayIcon.Text = "Device powered on.";
-            }
-
-            if (!_balloonShown && batteryLevel != 0 && batteryLevel <= 20)
-            {
-                TrayIcon.ShowBalloonTip(1000);
-                _balloonShown = true;
-            }
+            TrayIcon.Text = "Device not powered on.";
+        }
+        else
+        {
+            TrayIcon.Text = "Device powered on.";
         }
 
-        private void CloseMenuItem_Click(object? sender, EventArgs e)
+        if (!_balloonShown && batteryLevel != 0 && batteryLevel <= 20)
         {
-            Application.Exit();
+            TrayIcon.ShowBalloonTip(1000);
+            _balloonShown = true;
+        }
+    }
+
+    private void CloseMenuItem_Click(object? sender, EventArgs e)
+    {
+        Application.Exit();
+    }
+
+    private void OnApplicationExit(object? sender, EventArgs e)
+    {
+        TrayIcon.Visible = false;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    extern static bool DestroyIcon(IntPtr handle);
+
+    public void CreateTextIcon(int value)
+    {
+        var color = value switch
+        {
+            <= 0 => Color.White,
+            _ => Color.FromArgb(CalculateRed(value), CalculateGreen(value), 0)
+        };
+
+        using var fontToUse = new Font("Microsoft Sans Serif", value == 100 ? 10 : 16, FontStyle.Regular, GraphicsUnit.Pixel);
+        using var brushToUse = new SolidBrush(color);
+        using var bitmapText = new Bitmap(16, 16);
+        using var g = Graphics.FromImage(bitmapText);
+        g.Clear(Color.Transparent);
+        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+        g.DrawString(value <= 0 ? "?" : value.ToString(), fontToUse, brushToUse, -4, -2);
+
+        var hIcon = bitmapText.GetHicon();
+        using var icon = Icon.FromHandle(hIcon);
+        var oldIcon = TrayIcon.Icon;
+
+        TrayIcon.Icon = icon;
+        if (oldIcon != null)
+        {
+            DestroyIcon(oldIcon.Handle);
         }
 
-        private void OnApplicationExit(object? sender, EventArgs e)
+        static int CalculateRed(int value)
         {
-            TrayIcon.Visible = false;
-            _timer.Stop();
+            return (int)((value > 50 ? 1 - 2 * (value - 50) / 100.0 : 1.0) * 255);
         }
 
-        public Icon CreateTextIcon(int value)
+        static int CalculateGreen(int value)
         {
-            Color color;
-            if (value <= 0)
-            {
-                color = Color.White;
-            }
-            else
-            {
-                var red = (value > 50 ? 1 - 2 * (value - 50) / 100.0 : 1.0) * 255;
-                var green = (value > 50 ? 1.0 : 2 * value / 100.0) * 255;
-                var blue = 0.0;
-                color = Color.FromArgb((int)red, (int)green, (int)blue);
-            }
-
-            Font fontToUse = new Font("Microsoft Sans Serif", value == 100 ? 10 : 16, FontStyle.Regular, GraphicsUnit.Pixel);
-            Brush brushToUse = new SolidBrush(color);
-            Bitmap bitmapText = new Bitmap(16, 16);
-            Graphics g = Graphics.FromImage(bitmapText);
-
-            IntPtr hIcon;
-
-            g.Clear(Color.Transparent);
-            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
-            g.DrawString(value <= 0 ? "?" : value.ToString(), fontToUse, brushToUse, -4, -2);
-            hIcon = bitmapText.GetHicon();
-            return Icon.FromHandle(hIcon);
+            return (int)((value > 50 ? 1.0 : 2 * value / 100.0) * 255);
         }
     }
 }
